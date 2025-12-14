@@ -531,7 +531,7 @@ def resaltar_linea_ganadora(patron, coordenada_z_fija, coordenada_y_fija, coorde
         
         # Aplicar colores de victoria: amarillo sobre rojo
         botones[indice_boton].config(
-            text=simbolo,
+            text=simbolo_texto,
             font='arial 15',
             fg='yellow',
             bg='red'
@@ -539,14 +539,13 @@ def resaltar_linea_ganadora(patron, coordenada_z_fija, coordenada_y_fija, coorde
 
 #Renderiza la jugada actual en el tablero, dado (x,yz)
 def mostrar_coordenadas_jugada_actual(x, y, z):
-    Label(ventana, text=f'X={x}', font='arial 20', fg='green').place(x=20, y=50)
-    Label(ventana, text=f'Y={y}', font='arial 20', fg='green').place(x=20, y=100)
-    Label(ventana, text=f'Z={z}', font='arial 20', fg='green').place(x=20, y=150)
+    label_x.config(text=f'X={x}')
+    label_y.config(text=f'Y={y}')
+    label_z.config(text=f'Z={z}')
 
 #Actualiza el mensaje de estado
 def actualizar_label_estado(texto, color, x, y):
-    label = Label(ventana, text=texto, font='arial 20', fg=color)
-    label.place(x=x, y=y)
+    label_estado.config(text=texto, fg=color)
 
 #Finalizar juego, o continuar a otra ronda
 def preguntar_continuar_o_salir():
@@ -565,20 +564,37 @@ def preguntar_continuar_o_salir():
         #Cerrar ventana
         ventana.destroy()
 
-
 #Configuración de la ventana principal
 ventana = Tk()
 ventana.title('Tic Tac Toe 3D')
 ventana.geometry("1040x720+100+5")
-ventana.resizable(False, False)
+ventana.resizable(True, True)
 
+#Frame principal
+frame_principal = Frame(ventana)
+frame_principal.pack(fill='both', expand=True)
+
+#Frame izquierdo (estado + coordenadas)
+frame_izquierdo = Frame(frame_principal, width=250)
+frame_izquierdo.pack(side='left', fill='y', padx=10, pady=10)
+
+
+#Frame derecho (acciones)
+frame_derecho = Frame(frame_principal, width=120)
+frame_derecho.pack(side='right', fill='y', padx=10, pady=10)
+frame_derecho.pack_propagate(False)
+
+
+#Frame central (tablero)
+frame_centro = Frame(frame_principal)
+frame_centro.pack(side='left', expand=True, fill='both', padx=10, pady=10)
 
 
 ## INPUT REDES ##
 
 #Frame de conexión
-frame_conexion = Frame(ventana)
-frame_conexion.pack(pady=50)
+frame_conexion = Frame(frame_izquierdo)
+frame_conexion.pack(pady=20)
 
 #Obtener host
 Label(frame_conexion, text="Host:", font='arial 15').grid(row=0, column=0, padx=5)
@@ -593,7 +609,12 @@ entry_port.insert(0, "5555")
 entry_port.grid(row=1, column=1, padx=5, pady=10)
 
 #Botón para conectar
-Button(frame_conexion, text="Conectar", font='arial 15', command=conectar_al_servidor).grid(row=2, column=0, columnspan=2, pady=10)
+Button(
+    frame_conexion,
+    text="Conectar",
+    font='arial 15',
+    command=conectar_al_servidor
+).grid(row=2, column=0, columnspan=2, pady=10)
 
 ## FIN INPUT REDES ##
 
@@ -602,12 +623,42 @@ Button(frame_conexion, text="Conectar", font='arial 15', command=conectar_al_ser
 ## Interfaz de Juego ##{
 
 #Frame para el tablero
-frame_tablero = Frame(ventana)
-frame_tablero.pack()
+frame_tablero = Frame(frame_centro)
+frame_tablero.pack(expand=True)
 
-#Frame para botones superiores (ej: salir)
-frame_superior = Frame(ventana)
-frame_superior.pack(anchor='ne', padx=10, pady=10)
+#Frame para botones superiores
+frame_superior = Frame(frame_derecho)
+frame_superior.pack(anchor='n', pady=100)
+
+#Frame de estado del juego
+frame_estado = Frame(frame_izquierdo, width=200, height=70)
+frame_estado.pack(fill='x', pady=20)
+frame_estado.pack_propagate(False)
+
+
+#Label de estado (UN SOLO LABEL)
+label_estado = Label(
+    frame_estado,
+    text="No conectado",
+    font='arial 16',
+    fg='black',
+    wraplength=220,
+    justify='center'
+)
+label_estado.pack(pady=10)
+
+#Frame de coordenadas
+frame_coordenadas = Frame(frame_izquierdo)
+frame_coordenadas.pack(pady=20)
+
+label_x = Label(frame_coordenadas, text='X=0', font='arial 18', fg='green')
+label_x.pack(anchor='w')
+
+label_y = Label(frame_coordenadas, text='Y=0', font='arial 18', fg='green')
+label_y.pack(anchor='w')
+
+label_z = Label(frame_coordenadas, text='Z=0', font='arial 18', fg='green')
+label_z.pack(anchor='w')
 
 #Crear los 64 botones del tablero (4x4x4 = 64 celdas)
 for i in range(TOTAL_CELDAS):
@@ -625,8 +676,19 @@ for z in range(3, -1, -1):
             #Separar horizontalmente cada plano Z
             columna = x + (3 - z) * 4
             
-            botones[indice_boton].grid(row=fila, column=columna)
+            botones[indice_boton].grid(
+                row=fila,
+                column=columna,
+                padx=2,
+                pady=2,
+                sticky='nsew'
+            )
             indice_boton += 1
+
+#Hacer que el grid del tablero sea responsivo
+for i in range(16):
+    frame_tablero.columnconfigure(i, weight=1)
+    frame_tablero.rowconfigure(i, weight=1)
 
 #Crear botón de salida en la esquina superior derecha
 boton_salir = Button(
