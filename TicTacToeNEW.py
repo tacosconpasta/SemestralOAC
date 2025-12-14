@@ -1,4 +1,7 @@
-from tkinter import Tk, Button, Label, messagebox
+from tkinter import Tk, Button, Label, messagebox, Entry, Frame
+import socket
+import threading
+import json
 
 #Constantes del juego
 TABLERO_SIZE = 4
@@ -39,9 +42,253 @@ coordenada_y_jugada_actual = 0  # Coordenada Y de la jugada actual
 coordenada_z_jugada_actual = 0  # Coordenada Z de la jugada actual
 juego_terminado = False  #Indica si el juego ha terminado (alguien ganó)
 
+#Variables de red
+socket_cliente = None
+mi_numero_jugador = None  #1 o 2
+mi_simbolo = None  #'X' o 'O'
+es_mi_turno = False
+conectado = False
+
+#Variables de interfaz
+ventana = None
+frame_conexion = None
+entry_host = None #Input para el host
+entry_port = None #Input para el puerto del host
+
+
+
+#### REDES ####
+
+
+#Conectar al servidor
+def conectar_al_servidor():
+    global socket_cliente, conectado
+    
+    #Obtener valor de las entradas
+    host = entry_host.get()
+    puerto = entry_port.get()
+    
+    #Si no se introdujo ningún valor
+    if not host or not puerto:
+        messagebox.showerror("Error", "Debe ingresar un host y un puerto")
+        return
+    
+    ##VALIDACIÓN##
+    
+    #Intentar conexión
+    try:
+        #Parsear puerto de cadena => entero
+        puerto = int(puerto)
+        
+        #Crear socket y conectar
+        socket_cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        socket_cliente.connect((host, puerto))
+        
+        #Si no se lanzó una excepción, la conexión fue exitosa
+        conectado = True
+        
+        #Ocultar frame de inputs conexión
+        frame_conexion.pack_forget()
+        
+        #Iniciar hilo para recibir mensajes del servidor, para no tapar la interfaz
+        hilo_recibir = threading.Thread(target=recibir_mensajes_servidor, daemon=True)
+        hilo_recibir.start()
+        
+        #Indicarle al usuario que falta otro usuario por conectarse, por mientras
+        actualizar_label_estado("Conectado - Esperando oponente...", 'blue', 300, 5)
+        
+    except Exception as e:
+        messagebox.showerror("Error de Conexión", f"No se pudo conectar: {e}")
+
+
+#Recibe y procesa mensajes del servidor
+def recibir_mensajes_servidor():
+    global mi_numero_jugador, mi_simbolo, es_mi_turno, juego_terminado
+    
+    #Buffer para almacenar cadena del servidor
+    buffer = ""
+    
+    try:
+        #Mientras el usuario se mantenga conectado
+        while conectado:
+            #Recibir datos del servidor
+            datos = socket_cliente.recv(1024).decode('utf-8')
+            
+            #Si no hay datos, salirse
+            if not datos:
+                break
+            
+            #De lo contrario, añadirle al buffer los datos
+            buffer += datos
+            
+            #Procesar mensaje
+            while '\n' in buffer:
+                #Partir en cada salto de línea
+                linea, buffer = buffer.split('\n', 1)
+                
+                #Si hay una linea
+                if linea:
+                    #Parsear la linea como json y asignar el json a mensaje
+                    mensaje = json.loads(linea)
+                    
+                    #Procesar según tipo de mensaje
+
+                    #Si se asignó número de jugador a este cliente
+                    if mensaje['tipo'] == 'asignacion_jugador':
+                        mi_numero_jugador = mensaje['numero_jugador']
+                        mi_simbolo = mensaje['simbolo']
+
+                        #Indicar estado a jugador de este cliente
+                        ventana.after(0, lambda: actualizar_label_estado(
+                            f"Eres Jugador {mi_numero_jugador} ({mi_simbolo})",
+                            'green', 300, 5
+                        ))
+                    
+                    #Si se inició el juego
+                    elif mensaje['tipo'] == 'iniciar_juego':
+                        turno = mensaje['turno']
+                        es_mi_turno = (turno == mi_numero_jugador - 1)
+                        ventana.after(0, lambda: inicializar_juego())
+                        ventana.after(0, lambda: actualizar_turno(turno))
+                    
+                    #Si se realizó una jugada
+                    elif mensaje['tipo'] == 'jugada_realizada':
+                        ventana.after(0, lambda m=mensaje: procesar_jugada_oponente(m))
+                    
+                    #Si se reinició el juego
+                    elif mensaje['tipo'] == 'juego_reiniciado':
+                        turno = mensaje['turno']
+                        es_mi_turno = (turno == mi_numero_jugador - 1)
+                        juego_terminado = False
+                        ventana.after(0, lambda: inicializar_juego())
+                        ventana.after(0, lambda: actualizar_turno(turno))
+                    
+                    #Si se desconectó el oponente
+                    elif mensaje['tipo'] == 'oponente_desconectado':
+                        ventana.after(0, lambda: messagebox.showinfo(
+                            "Desconexión",
+                            mensaje['mensaje']
+                        ))
+                        ventana.after(0, lambda: actualizar_label_estado(
+                            "Oponente desconectado",
+                            'red', 300, 5
+                        ))
+                    
+                    #Si hubo un error
+                    elif mensaje['tipo'] == 'error':
+                        ventana.after(0, lambda m=mensaje: actualizar_label_estado(
+                            m['mensaje'], 'red', 300, 5
+                        ))
+    
+    except Exception as e:
+        print(f"Error recibiendo mensajes: {e}")
+
+#Procesar jugada que viene del servidor
+def procesar_jugada_oponente(mensaje):
+    #Variables a acceder en este método
+    global coordenada_x_jugada_actual, coordenada_y_jugada_actual, coordenada_z_jugada_actual, es_mi_turno, juego_terminado
+    
+    #Jugador = numero de jugador
+    jugador = mensaje['jugador']
+
+    #Obtener coordenadas de la jugada
+    x = mensaje['x']
+    y = mensaje['y']
+    z = mensaje['z']
+
+    #Indica a quien le toca luego de esta jugada
+    turno_siguiente = mensaje['turno_siguiente']
+    
+    #Actualizar coordenadas localmente
+    coordenada_x_jugada_actual = x
+    coordenada_y_jugada_actual = y
+    coordenada_z_jugada_actual = z
+    
+    #Calcular índice del botón, en donde se realizó la jugada
+    indice_boton = z * 16 + y * 4 + x
+    
+    #Actualizar tablero local y botón clickeado (por oponente)
+
+    #Si el oponente es jugador1
+    if jugador == 1:
+        #Asignar simbolo de X a escribir en boton
+        simbolo = JUGADOR1_SIMBOLO_X
+
+        #Modificar valor del tablero local con el valor de X
+        tablero[z][y][x] = JUGADOR1_VALOR_X
+
+        #Renderizar X en botón
+        botones[indice_boton].config(text=simbolo, font='arial 15', fg='blue')
+    else:
+        #Asignar simbolo de O a escribir en boton
+        simbolo = JUGADOR2_SIMBOLO_O
+
+        #Modificar valor del tablero local con el valor de O
+        tablero[z][y][x] = JUGADOR2_VALOR_O
+
+        #Renderizar O en el botón
+        botones[indice_boton].config(text=simbolo, font='arial 15', fg='red')
+    
+    #Mostrar coordenadas
+    mostrar_coordenadas_jugada_actual(x, y, z)
+    
+    #Verificar si el oponente ganó con esta jugada
+    if verificar_ganador():
+        actualizar_label_estado(f'Jugador {jugador} GANO', 'blue', 300, 5)
+        juego_terminado = True
+        return
+    
+    #Actualizar turno
+    actualizar_turno(turno_siguiente)
+
+#Actualiza el indicador de turno
+def actualizar_turno(turno):
+    global es_mi_turno
+    
+    #Si le toca al jugador de este cliente
+    es_mi_turno = (turno == mi_numero_jugador - 1)
+    
+    #Actualizar a "Tu turno"
+    if es_mi_turno:
+        actualizar_label_estado('Tu turno', 'green', 500, 620)
+
+    #Actualiza a "Turno de oponente"
+    else:
+        actualizar_label_estado('Turno del oponente', 'orange', 500, 620)
+
+#Envia una jugada al servidor
+def enviar_jugada_al_servidor(x, y, z):
+    #Si no se está conectado, o el socket no tiene nada, devolver
+    if not conectado or not socket_cliente:
+        return
+    
+    #De lo contrario, preparar mensaje de jugada a enviar
+    mensaje = {
+        'tipo': 'jugada',
+        'x': x,
+        'y': y,
+        'z': z
+    }
+    
+    try:
+        #Enviar mensjae de jugada a enviar
+        socket_cliente.send((json.dumps(mensaje) + '\n').encode('utf-8'))
+    except Exception as e:
+        #No se pudo enviar
+        print(f"Error enviando jugada: {e}")
+
+
+#### FIN REDES ####
+
+
+
+
+#### JUEGO ####
+
+
 #Reinicia el tablero y todas las variables a su estado inicial para comenzar un juego nuevo
 def inicializar_juego():
-    global tablero, jugador_actual, juego_terminado
+    global tablero, juego_terminado
     
     #Crear tablero 3D de 4x4x4 (64) lleno de celdas=0. 
     tablero = [[[CELDA_VACIA for _ in range(TABLERO_SIZE)] 
@@ -51,20 +298,14 @@ def inicializar_juego():
     #Limpiar todos los botones: sin texto, color azul, fondo blanco
     for boton in botones:
         boton.config(text='', font='arial 15', fg='blue', bg='white')
-    
-    #El Jugador 1 (X) siempre comienza
-    jugador_actual = 0
-    
+
     #Se limpia el juego_terminado de ronda anterior, si se reinició el juego con botón Salir
     juego_terminado = False
-    
-    #Mostrar mensaje de turno del Jugador 1
-    actualizar_label_estado(f'Jugador {jugador_actual + 1}', 'green', 500, 620)
 
 #Crea un botón, sin texto, en el tablero. tablero[indice_boton] = boton
 def crear_boton(indice_boton):
     return Button(
-        ventana,
+        frame_tablero,
         text='',
         width=5,
         height=1,
@@ -75,7 +316,22 @@ def crear_boton(indice_boton):
 #Al hacer click en un boton
 def handle_click_boton(indice_boton):
     #Se acceden a estas variables en este método
-    global jugador_actual, coordenada_x_jugada_actual, coordenada_y_jugada_actual, coordenada_z_jugada_actual, juego_terminado
+    global coordenada_x_jugada_actual, coordenada_y_jugada_actual, coordenada_z_jugada_actual
+
+    #Si este cliente no está conectado
+    if not conectado:
+        actualizar_label_estado('No estás conectado', 'red', 300, 5)
+        return
+    
+    #Si el juego terminó
+    if juego_terminado:
+        preguntar_continuar_o_salir()
+        return
+
+    #Si no es el turno del cliente actual e intentó hacer una jugada
+    if not es_mi_turno:
+        actualizar_label_estado('No es tu turno, las trampas son malas.', 'red', 300, 5)
+        return
     
     #Convertir el índice lineal del botón (0-63) a sus coordenadas 3D (x, y, z)
     #Cada plano Z tiene 16 celdas (4x4), por eso dividimos entre 16
@@ -89,67 +345,19 @@ def handle_click_boton(indice_boton):
     
     #El residuo final nos da la columna X
     coordenada_x_jugada_actual = residuo % 4
-    
-    #Actualizar la visualización de las coordenadas en pantalla
-    mostrar_coordenadas_jugada_actual(coordenada_x_jugada_actual, coordenada_y_jugada_actual, coordenada_z_jugada_actual)
-    
-    #Si el juego ya terminó, preguntar si quiere jugar de nuevo
-    if juego_terminado:
-        preguntar_continuar_o_salir()
-        return
-    
-    #Verificar si la celda ya está ocupada por alguna jugada anterior.
-    #Si está ocupada, marcar como jugada inválida
+
+    #Verificar si la celda, a la cual se le hizo click, está vacía
     if tablero[coordenada_z_jugada_actual][coordenada_y_jugada_actual][coordenada_x_jugada_actual] != CELDA_VACIA:
-        actualizar_label_estado('Jugada Inválida', 'red', 300, 5)
+        actualizar_label_estado('Celda ocupada. Las trampas son malas', 'red', 300, 5)
         return
     
-    #Limpiar cualquier mensaje de error previo
-    actualizar_label_estado('                          ', 'gray', 300, 5)
-    
-    #Si el jugador actual es 0, registrar su jugada (Marcar casilla/boton con X)
-    if jugador_actual == 0:
-        #Simbolo a mostrar
-        simbolo_a_mostrar = JUGADOR1_SIMBOLO_X
-
-        #tablero[x][y][z] = valor de X (NO simbolo)
-        tablero[coordenada_z_jugada_actual][coordenada_y_jugada_actual][coordenada_x_jugada_actual] = JUGADOR1_VALOR_X
-
-        #Mostrar en botón clickeado
-        botones[indice_boton].config(text=simbolo_a_mostrar, font='arial 15', fg='blue')
-    
-    #Si el jugador es el Jugador 2
-    else:
-        #Simbolo a mostrar
-        simbolo_a_mostrar = JUGADOR2_SIMBOLO_O
-
-        #tablero[x][y][z] = valor de O (NO simbolo)
-        tablero[coordenada_z_jugada_actual][coordenada_y_jugada_actual][coordenada_x_jugada_actual] = JUGADOR2_VALOR_O
-
-        #Mostrar en botón clickeado
-        botones[indice_boton].config(text=simbolo_a_mostrar, font='arial 15', fg='red')
-    
-    #Verificar si esta jugada ACTUAL generó un ganador
-    if verificar_ganador():
-        #Si la jugada actual ganó, entonces, mostrar en estado
-        actualizar_label_estado(f'Jugador {jugador_actual + 1} GANO', 'blue', 300, 5)
-
-        #Marcar el juego como terminado
-        juego_terminado = True
-        #Retornar
-        return
-
-    #Togglea al otro jugador (0 se vuelve 1, 1 se vuelve 0) [Jugador1 = 0; Jugador2 = 1]
-    jugador_actual = 1 - jugador_actual
-    
-    #Mostrar mensaje de turno del siguiente jugador
-    actualizar_label_estado(
-        f'Esperando jugada de Jugador {jugador_actual + 1}',
-        'green',
-        500,
-        620
+    #Si todo está bien, enviar jugada al servidor
+    enviar_jugada_al_servidor(
+        coordenada_x_jugada_actual,
+        coordenada_y_jugada_actual,
+        coordenada_z_jugada_actual
     )
-
+    
 #Verifica todos los patrones de victoria posibles en la jugada actual
 def verificar_ganador():
     for patron in PATRONES_VICTORIA:
@@ -159,7 +367,7 @@ def verificar_ganador():
 
 def verificar_linea_ganadora(patron):
     """
-    Verifica si hay 4 fichas del mismo jugador alineadas según el patrón dado.
+    Verifica si hay 4 fichas del mismo jugador alineadas según el patrón ganador a analizar.
     
     Por ejemplo, si se acaba de jugar en X=2, Y=1, Z=3.
     Ahora necesitamos revisar si esa jugada completó una línea de 4 fichas. (Osea, si es ganadora)
@@ -185,6 +393,7 @@ def verificar_linea_ganadora(patron):
     - modo = -1: significa que esa coordenada DECRECE (va de 3 a 0)
     """
 
+    #Asignar patrón a los modos. Recordar que patrón es una tripla [-1, 0, 1]
     modo_z, modo_y, modo_x = patron
     
     # PASO 1: Identificar cuáles coordenadas permanecen FIJAS
@@ -305,6 +514,7 @@ def obtener_coordenada(coordenada_actual, coordenada_fija, modo, indice_iteracio
 
 #Renderiza la línea ganadora
 def resaltar_linea_ganadora(patron, coordenada_z_fija, coordenada_y_fija, coordenada_x_fija):
+    #Asignar tripla a modos. [z, y, x] => [-1, 0, 1]
     modo_z, modo_y, modo_x = patron
     
     for i in range(TABLERO_SIZE):
@@ -315,8 +525,9 @@ def resaltar_linea_ganadora(patron, coordenada_z_fija, coordenada_y_fija, coorde
         # Convertir coordenadas 3D de vuelta a índice lineal
         indice_boton = z * 16 + y * 4 + x
         
-        # Determinar qué símbolo mostrar según quién ganó
-        simbolo = JUGADOR1_SIMBOLO_X if jugador_actual == 0 else JUGADOR2_SIMBOLO_O
+        #Determinar qué símbolo debe repintarse para mostrar quién ganó
+        simbolo = tablero[z][y][x]
+        simbolo_texto = JUGADOR1_SIMBOLO_X if simbolo == JUGADOR1_VALOR_X else JUGADOR2_SIMBOLO_O
         
         # Aplicar colores de victoria: amarillo sobre rojo
         botones[indice_boton].config(
@@ -340,9 +551,18 @@ def actualizar_label_estado(texto, color, x, y):
 #Finalizar juego, o continuar a otra ronda
 def preguntar_continuar_o_salir():
     respuesta = messagebox.askyesno("FINALIZAR", "¿Quieres continuar?")
+
+    #Si se quiere reiniciar y el juego ya se acabó
     if respuesta and juego_terminado:
-        inicializar_juego()
+        #Enviar solicitud de reinicio al servidor
+        if conectado and socket_cliente:
+            mensaje = {'tipo': 'reiniciar_juego'}
+            socket_cliente.send((json.dumps(mensaje) + '\n').encode('utf-8'))
     elif not respuesta:
+        #Cerrar socket
+        if socket_cliente:
+            socket_cliente.close()
+        #Cerrar ventana
         ventana.destroy()
 
 
@@ -351,6 +571,43 @@ ventana = Tk()
 ventana.title('Tic Tac Toe 3D')
 ventana.geometry("1040x720+100+5")
 ventana.resizable(False, False)
+
+
+
+## INPUT REDES ##
+
+#Frame de conexión
+frame_conexion = Frame(ventana)
+frame_conexion.pack(pady=50)
+
+#Obtener host
+Label(frame_conexion, text="Host:", font='arial 15').grid(row=0, column=0, padx=5)
+entry_host = Entry(frame_conexion, font='arial 15', width=15)
+entry_host.insert(0, "localhost")
+entry_host.grid(row=0, column=1, padx=5)
+
+#Obtener Puerto
+Label(frame_conexion, text="Puerto:", font='arial 15').grid(row=1, column=0, padx=5, pady=10)
+entry_port = Entry(frame_conexion, font='arial 15', width=15)
+entry_port.insert(0, "5555")
+entry_port.grid(row=1, column=1, padx=5, pady=10)
+
+#Botón para conectar
+Button(frame_conexion, text="Conectar", font='arial 15', command=conectar_al_servidor).grid(row=2, column=0, columnspan=2, pady=10)
+
+## FIN INPUT REDES ##
+
+
+
+## Interfaz de Juego ##{
+
+#Frame para el tablero
+frame_tablero = Frame(ventana)
+frame_tablero.pack()
+
+#Frame para botones superiores (ej: salir)
+frame_superior = Frame(ventana)
+frame_superior.pack(anchor='ne', padx=10, pady=10)
 
 #Crear los 64 botones del tablero (4x4x4 = 64 celdas)
 for i in range(TOTAL_CELDAS):
@@ -373,14 +630,14 @@ for z in range(3, -1, -1):
 
 #Crear botón de salida en la esquina superior derecha
 boton_salir = Button(
-    ventana,
+    frame_superior,
     text='Exit',
     width=5,
     height=1,
     font=("Helvetica", 15),
     command=preguntar_continuar_o_salir
 )
-boton_salir.grid(row=0, column=10)
+boton_salir.pack()
 
 # Iniciar el primer juego
 inicializar_juego()
