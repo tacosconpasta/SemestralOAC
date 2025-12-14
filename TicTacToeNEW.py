@@ -170,9 +170,12 @@ def recibir_mensajes_servidor():
                             mensaje['mensaje']
                         ))
                         ventana.after(0, lambda: actualizar_label_estado(
-                            "Oponente desconectado",
+                            "Oponente desconectado, se reinicia el juego",
                             'red', 300, 5
                         ))
+
+                        #Reiniciar variables
+                        mostrar_coordenadas_jugada_actual(0, 0, 0)
                     
                     #Si hubo un error
                     elif mensaje['tipo'] == 'error':

@@ -8,10 +8,10 @@ PORT = 5555
 JUGADOR1_SIMBOLO = 'X'
 JUGADOR2_SIMBOLO = 'O'
 
-#Lista de sockets de clientes conectados
-clientes_conectados = [] 
+#Diccionario para mapear sockets a números de jugador
+jugadores = {}  # {socket: numero_jugador}
 
-#[jugador1: 0; jugador2: 1];
+#turno_actual = 0 para jugador1, 1 para jugador2
 turno_actual = 0  
 
 #Tablero del servidor, registra movimientos y los envia a los clientes
@@ -23,11 +23,11 @@ juego_iniciado = False
 #Envia un mensaje a todos los clientes conectados (mensaje, clienteAExcluir)
 #Por defecto, no se excluye a ningun cliente
 def emitir_mensaje(mensaje, excluir_cliente=None):
-    #Convertir mensjae a json
+    #Convertir mensaje a json
     mensaje_json = json.dumps(mensaje) + '\n'
     
     #Por cada cliente conectado
-    for cliente in clientes_conectados:
+    for cliente in list(jugadores.keys()):
         #Si hay un cliente a excluir y es este, no enviar
         if excluir_cliente and cliente == excluir_cliente:
             continue
@@ -35,11 +35,10 @@ def emitir_mensaje(mensaje, excluir_cliente=None):
         #Enviar el json
         try:
             cliente.send(mensaje_json.encode('utf-8'))
-
         except:
             # Si falla el envío, remover este cliente
-            if cliente in clientes_conectados:
-                clientes_conectados.remove(cliente)
+            if cliente in jugadores:
+                del jugadores[cliente]
 
 
 def manejar_cliente(socket_cliente, numero_jugador):
@@ -64,7 +63,7 @@ def manejar_cliente(socket_cliente, numero_jugador):
     socket_cliente.send((json.dumps(mensaje_bienvenida) + '\n').encode('utf-8'))
     
     #Si ya hay 2 jugadores, y el juego no ha empezado, iniciar el juego
-    if len(clientes_conectados) == 2 and not juego_iniciado:
+    if len(jugadores) == 2 and not juego_iniciado:
         juego_iniciado = True
         mensaje_inicio = {
             'tipo': 'iniciar_juego',
@@ -106,7 +105,7 @@ def manejar_cliente(socket_cliente, numero_jugador):
                     if mensaje['tipo'] == 'jugada':
                         procesar_jugada(mensaje, socket_cliente, numero_jugador)
                     
-                    #Si el tipo es reiniciar juego, se reinicia el juego (Añadir confirmación de otro cliente)
+                    #Si el tipo es reiniciar juego, se reinicia el juego
                     elif mensaje['tipo'] == 'reiniciar_juego':
                         reiniciar_juego()
     
@@ -118,9 +117,9 @@ def manejar_cliente(socket_cliente, numero_jugador):
         #Cliente desconectado - notificar al otro jugador
         print(f"Jugador {numero_jugador} desconectado")
         
-        #Remover cliente desconectado de clientes
-        if socket_cliente in clientes_conectados:
-            clientes_conectados.remove(socket_cliente)
+        #Remover cliente desconectado de jugadores
+        if socket_cliente in jugadores:
+            del jugadores[socket_cliente]
         
         #cerrar conexión con el cliente
         socket_cliente.close()
@@ -135,6 +134,13 @@ def manejar_cliente(socket_cliente, numero_jugador):
         
         #Resetear el estado del juego
         juego_iniciado = False
+        turno_actual = 0
+        tablero_servidor = [[[0 for _ in range(4)] for _ in range(4)] for _ in range(4)]
+        mensaje_reset = {
+          'tipo': 'juego_terminado',
+          'mensaje': 'El juego terminó porque un jugador se desconectó'
+        }
+        emitir_mensaje(mensaje_reset)
 
 #Procesa jugada de cliente
 def procesar_jugada(mensaje, socket_cliente, numero_jugador):
@@ -164,14 +170,14 @@ def procesar_jugada(mensaje, socket_cliente, numero_jugador):
             'tipo': 'error',
             'mensaje': 'Celda ocupada'
         }
-        #Enviar mensjae de invalidación
+        #Enviar mensaje de invalidación
         socket_cliente.send((json.dumps(mensaje_error) + '\n').encode('utf-8'))
         return
     
     #Si todo está bien...
     #El valor a guardar, en el tablero, es:
-    #  -1 si es Jugador2
-    #   1 si es Jugador1
+    #  -1 si es Jugador1
+    #   1 si es Jugador2
     valor = -1 if numero_jugador == 1 else 1
 
     #Registrar la jugada en el tablero del servidor
@@ -215,6 +221,21 @@ def reiniciar_juego():
     
     print("Juego reiniciado")
 
+#Encuentra el próximo número de jugador disponible
+def obtener_numero_jugador_disponible():
+    """
+    Determina qué número de jugador asignar al nuevo cliente.
+    Retorna 1 si no hay Jugador 1, 2 si no hay Jugador 2, o None si está lleno.
+    """
+    numeros_ocupados = set(jugadores.values())
+    
+    if 1 not in numeros_ocupados:
+        return 1
+    elif 2 not in numeros_ocupados:
+        return 2
+    else:
+        return None
+
 #Inicia el servidor, acepta máximo 2 clientes
 def iniciar_servidor():
     #Crear socket del servidor
@@ -234,21 +255,20 @@ def iniciar_servidor():
     print(f"Servidor iniciado en {HOST}:{PORT}")
     print("Esperando jugadores...")
     
-    #Asignar Jugador1 a primer cliente
-    numero_jugador = 1
-    
     try:
         #Escuchar
         while True:
             try:
-              #Si se conecta un cliente
-              socket_cliente, direccion = servidor.accept()
+                #Si se conecta un cliente
+                socket_cliente, direccion = servidor.accept()
             except socket.timeout:
-              continue  # vuelve al loop, permite Ctrl+C
+                continue  # vuelve al loop, permite Ctrl+C
             
-            #Si es un 3er cliente, es invalido
-            if len(clientes_conectados) >= 2:
-                #Crear mensaje de rechazo
+            #Verificar si hay espacio disponible
+            numero_jugador = obtener_numero_jugador_disponible()
+            
+            if numero_jugador is None:
+                #Servidor lleno
                 mensaje_rechazo = {
                     'tipo': 'servidor_lleno',
                     'mensaje': 'El servidor ya tiene 2 jugadores'
@@ -259,9 +279,8 @@ def iniciar_servidor():
                 socket_cliente.close()
                 continue
             
-            #Si es 1 o 2do cliente,
-            #Agregar cliente a la lista
-            clientes_conectados.append(socket_cliente)
+            #Asignar el jugador al socket
+            jugadores[socket_cliente] = numero_jugador
             
             #Crear un hilo para manejar este cliente
             hilo_cliente = threading.Thread(
@@ -271,13 +290,6 @@ def iniciar_servidor():
 
             hilo_cliente.daemon = True  #El hilo se cierra cuando el programa principal termina
             hilo_cliente.start() #Empezar hilo
-            
-            #Le toca al siguiente cliente, el Jugador2
-            numero_jugador += 1
-            
-            #Cuando hayan ya 2 jugadores conectados, reiniciar contador para siguientes clientes
-            if numero_jugador > 2:
-                numero_jugador = 1
     
     #Al interrumpir con teclado
     except KeyboardInterrupt:
