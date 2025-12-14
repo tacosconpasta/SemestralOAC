@@ -139,9 +139,8 @@ def recibir_mensajes_servidor():
                         mi_simbolo = mensaje['simbolo']
 
                         #Indicar estado a jugador de este cliente
-                        ventana.after(0, lambda: actualizar_label_estado(
-                            f"Eres Jugador {mi_numero_jugador} ({mi_simbolo})",
-                            'green', 300, 5
+                        ventana.after(0, lambda: label_identidad.config(
+                            text=f"Eres el Jugador {mi_numero_jugador}\nFicha: {mi_simbolo}"
                         ))
                     
                     #Si se inició el juego
@@ -552,7 +551,7 @@ def actualizar_label_estado(texto, color, x, y):
 
 #Finalizar juego, o continuar a otra ronda
 def preguntar_continuar_o_salir():
-    respuesta = messagebox.askyesno("FINALIZAR", "¿Quieres continuar?")
+    respuesta = messagebox.askyesno("FINALIZAR", "¿Deseas reiniciar el Juego? \n\n(Sólo se puede reiniciar cuando hay un ganador, no sería justo reiniciar cuando vas perdiendo, tramposo.)")
 
     #Si se quiere reiniciar y el juego ya se acabó
     if respuesta and juego_terminado:
@@ -560,12 +559,6 @@ def preguntar_continuar_o_salir():
         if conectado and socket_cliente:
             mensaje = {'tipo': 'reiniciar_juego'}
             socket_cliente.send((json.dumps(mensaje) + '\n').encode('utf-8'))
-    elif not respuesta:
-        #Cerrar socket
-        if socket_cliente:
-            socket_cliente.close()
-        #Cerrar ventana
-        ventana.destroy()
 
 #Configuración de la ventana principal
 ventana = Tk()
@@ -602,7 +595,7 @@ frame_conexion.pack(pady=20)
 #Obtener host
 Label(frame_conexion, text="Host:", font='arial 15').grid(row=0, column=0, padx=5)
 entry_host = Entry(frame_conexion, font='arial 15', width=15)
-entry_host.insert(0, "localhost")
+entry_host.insert(0, "srv595743.hstgr.cloud")
 entry_host.grid(row=0, column=1, padx=5)
 
 #Obtener Puerto
@@ -634,7 +627,7 @@ frame_superior = Frame(frame_derecho)
 frame_superior.pack(anchor='n', pady=100)
 
 #Frame de estado del juego
-frame_estado = Frame(frame_izquierdo, width=200, height=70)
+frame_estado = Frame(frame_izquierdo, width=200, height=400)
 frame_estado.pack(fill='x', pady=20)
 frame_estado.pack_propagate(False)
 
@@ -649,6 +642,18 @@ label_estado = Label(
     justify='center'
 )
 label_estado.pack(pady=10)
+
+# Label fijo para mostrar quién eres
+label_identidad = Label(
+    frame_izquierdo,
+    text="",
+    font='arial 16 bold',
+    fg='black',
+    wraplength=220,
+    justify='center'
+)
+label_identidad.pack(pady=10)
+
 
 #Frame de coordenadas
 frame_coordenadas = Frame(frame_izquierdo)
@@ -696,8 +701,8 @@ for i in range(16):
 #Crear botón de salida en la esquina superior derecha
 boton_salir = Button(
     frame_superior,
-    text='Exit',
-    width=5,
+    text='Restart/Salir',
+    width=25,
     height=1,
     font=("Helvetica", 15),
     command=preguntar_continuar_o_salir
