@@ -228,6 +228,7 @@ def iniciar_servidor():
     
     #Escuchar conexiones entrantes (máximo 2 en espera)
     servidor.listen(2)
+    servidor.settimeout(1.0)
     
     #Logging
     print(f"Servidor iniciado en {HOST}:{PORT}")
@@ -239,8 +240,11 @@ def iniciar_servidor():
     try:
         #Escuchar
         while True:
-            #Si se conecta un cliente
-            socket_cliente, direccion = servidor.accept()
+            try:
+              #Si se conecta un cliente
+              socket_cliente, direccion = servidor.accept()
+            except socket.timeout:
+              continue  # vuelve al loop, permite Ctrl+C
             
             #Si es un 3er cliente, es invalido
             if len(clientes_conectados) >= 2:
