@@ -1,11 +1,13 @@
 from tkinter import *
 from tkinter import messagebox
 
-def crearBoton(valor,i):  # Creacion de botones
+#Creacion de botones
+def crearBoton(valor,i):
         return Button(tablero,text=valor,width=5,height=1,font=("Helvetica",15),
                       command=lambda:botonClick(i))
 
-def seguir_o_finalizar(): # Seguir o finalizar
+#Mensaje de Exit (Si contrincante se sale, jugador gana)
+def seguir_o_finalizar():
     resp = messagebox.askyesno("FINALIZAR", "¿Quieres continuar?")
     if resp:
        if g:
@@ -14,85 +16,117 @@ def seguir_o_finalizar(): # Seguir o finalizar
        tablero.destroy()
     return resp
 
-def botonClick(i): # Coordenadas donde se presiono la casilla a jugar
+#Al hacer click a un botón...
+def botonClick(i):
     global X,Y,Z,texto,g,jugador     
+
     Z=int(i/16)  
     y=i%16
     Y=int(y/4)
     X=y%4
+
     Label(tablero, text='X='+str(X), font='arial, 20', fg='green').place(x=20,y=50)
     Label(tablero, text='Y='+str(Y), font='arial, 20', fg='green').place(x=20,y=100)
     Label(tablero, text='Z='+str(Z), font='arial, 20', fg='green').place(x=20,y=150)
-    if g: # Finaliza el juego o reinicia otro
+
+    #Finaliza el juego o reinicia otro
+    if g: 
         seguir_o_finalizar()
         return
-    if jugadas[Z][Y][X]==0: # Se puede jugar 
-        texto=Label(tablero, text='                          ',font='arial, 20', fg='gray') # white
+    
+    #Si la jugada es válida (La casilla está libre)
+    if jugadas[Z][Y][X]==0: 
+
+        texto=Label(tablero, text='                          ',font='arial, 20', fg='gray')
         texto.place(x=300, y=5)
-        if jugador==0: # Jugo el jugador I
+
+        #Jugo el jugador I
+        if jugador==0: 
             texto = 'X'
             jugadas[Z][Y][X]=-1
             botones[i].config(text=texto, font='arial 15',fg='blue')
-        else: # ugo el jugador II
+
+        #Jugo el jugador II
+        else: 
             texto = 'O'
             jugadas[Z][Y][X]=1
             botones[i].config(text=texto, font='arial 15',fg='red')
-        for j in range(13):  # Recorre las 13 jugadas
-            if jugada_13(j): # Retorna TRUE hay ganador
+
+        #Recorre las 13 jugadas
+        for j in range(13):  
+            #Retorna TRUE hay ganador
+            if jugada_13(j): 
                 texto=Label(tablero,text='Jugador '+str(jugador+1)+' GANO',font='arial, 20', fg='blue')
                 texto.place(x=300, y=5)
                 g=1
                 return
-        if not g:  # Cambia de jugador
+            
+        #Cambia de jugador
+        if not g:  
             jugador = not jugador
             texto=Label(tablero, text='Esperando jugada de Jugador '+str(jugador+1),font='arial, 20', fg='green')
             texto.place(x=500, y=620)
+
+    #Si la jugada es inválida
     else:
         texto=Label(tablero, text='Jugada Inválida ',font='arial, 20', fg='green')
         texto.place(x=300, y=5)
   
-def jugada_13(c):  #  C[1,0,-1] 1=No Varia, 0=varia 0,1,2,3, -1=Varia 3,2,1,0
+
+# C[1,0,-1] 1=No Varia, 0=varia 0,1,2,3, -1=Varia 3,2,1,0
+def jugada_13(c):  
     temporalZ = C[c][0]
     temporalY = C[c][1]
     temporalX = C[c][2]
-    z1 = Z if temporalZ>0 else -1  #temporalZ = C[c][0] = [Z,Y,X]
+
+    #temporalZ = C[c][0] = [Z,Y,X]
+    z1 = Z if temporalZ>0 else -1  
     y1 = Y if temporalY>0 else -1 
     x1 = X if temporalX>0 else -1
     s=0
+    
     for i in range(4):
         z = Z if z1>=0 else 3-i if temporalZ else i # z=Z si Z no varia, z=i=0,1,2,3, z=(3-i)=3,2,1,0      
         y = Y if y1>=0 else 3-i if temporalY else i # y=Y si Y no varia, y=i=0,1,2,3, y=(3-i)=3,2,1,0
         x = X if x1>=0 else 3-i if temporalX else i # x=X si X no varia, x=i=0,1,2,3, x=(3-i)=3,2,1,0      
-        s+=jugadas[z][y][x] #        |                 |
+        s+=jugadas[z][y][x]
+                            #        |                 |
     if (s<4 and s>-4):      # s <= -4| s > -4  && 4 > s| s >= 4
         return False        # g=1ero |  g=No Ganador   | g=2do
+    
     else:
-        for i in range(4):  # Hay un ganador
+        #Hay un ganador
+        for i in range(4):  
             z = Z if z1>=0 else 3-i if temporalZ else i # z=Z si Z no varia, z=i=0,1,2,3, z=(3-i)=3,2,1,0
             y = Y if y1>=0 else 3-i if temporalY else i # y=Y si Y no varia, y=i=0,1,2,3, y=(3-i)=3,2,1,0
             x = X if x1>=0 else 3-i if temporalX else i # x=X si X no varia, x=i=0,1,2,3, x=(3-i)=3,2,1,0  
             botones[z*16+y*4+x].config(text=texto, font='arial 15',fg='yellow',bg='red') # letras amarillas fondo rojo
+
         return True
 
-def inicio():  # Inicia las variables y los arreglos
+#Inicia las variables y los arreglos
+def inicio():  
     global g,ganador
     for z in range(4):
         for y in range(4):
             for x in range(4):
                 jugadas[z][y][x]=0
                 botones[z*16+y*4+x].config(text='',font='arial 15',fg='blue',bg='white')
-    X = Y= Z = g = jugador = 0
-    texto=Label(tablero, text='Jugador '+str(jugador+1),font='arial, 20', fg='green') # Jugador I
+
+    X = Y = Z = g = jugador = 0
+
+    #Jugador I
+    texto=Label(tablero, text='Jugador '+str(jugador+1),font='arial, 20', fg='green')
     texto.place(x=500, y=620)
 
-# Aqui empieza el programa Raiz
-
+#Casillas (renombrar)
 jugadas = [[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]],  #Si las jugadas estan en cero (0) entonces
            [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]],  #se puede dar click en esa casilla
            [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]],
            [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]]
 
-#  C[1,0,-1] 1=No Varia, 0=varia 0,1,2,3, -1=Varia 3,2,1,0
+#Posibles jugadas que indican ganador?
+#C[1,0,-1] 1=No Varia, 0=varia 0,1,2,3, -1=Varia 3,2,1,0
 C = [[1,1,0], #1- Horizontales - Z y Y no varía, x=> 0,1,2,3       4    3
      [1,0,1], #2- Verticales   - Z y X no varía, y=> 0,1,2,3       2    1
      [0,1,1], #3- Profundidad  - Y y X no varía, z=> 0,1,2,3
@@ -107,23 +141,42 @@ C = [[1,1,0], #1- Horizontales - Z y Y no varía, x=> 0,1,2,3       4    3
      [0,0,-1], #12 Diagonal cruzada3- y i z=> 0,1,2,3 i x=> 3,2,1,0, Y==Z & X+Y==3
      [0,0,0]]  #13 Diagonal cruzada4- x, y i z=> 0,1,2,3, X==Y==Z
 
-X = Y= Z = g = jugador = 0
+X = Y = Z = g = jugador = 0
+
+#Arreglo de botones
 botones=[]
+
+#Ventana
 tablero=Tk()
+
+#Título de Ventana
 tablero.title('Tic Tac Toe 3D')
+
+#Dimensiones de ventana
 tablero.geometry("1040x720+100+5")
+
+#No puede ser redimensionada
 tablero.resizable(0, 0)
+
+#Crear los 64 botones a los cuales se les puede hacer click
 for b in range(64):
-    botones.append(crearBoton(' ',b))        
+    botones.append(crearBoton(' ',b))    
+
+#Inicializar contador en 0    
 contador=0
 for z in range(3,-1,-1):
     for y in range(4):
         for x in range(4):
             botones[contador].grid(row=y+z*4,column=x+(3-z)*4)
             contador+=1
+
+#Iniciar juego
 inicio()
+
+#Crear botón para salir del juego
 botonexit = Button(tablero,text='Exit',width=5,height=1,font=("Helvetica",15),
                    command=seguir_o_finalizar)
+
 botonexit.grid(row=0,column=10)
 
 tablero.mainloop()
