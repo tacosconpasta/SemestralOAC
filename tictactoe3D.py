@@ -95,7 +95,7 @@ def conectar_al_servidor():
         hilo_recibir.start()
         
         #Indicarle al usuario que falta otro usuario por conectarse, por mientras
-        actualizar_label_estado("Conectado - Esperando oponente...", 'blue', 300, 5)
+        actualizar_label_estado("Conectado - Esperando oponente...", '#a3f08d', 300, 5)
         
     except Exception as e:
         messagebox.showerror("Error de Conexión", f"No se pudo conectar: {e}")
@@ -170,7 +170,7 @@ def recibir_mensajes_servidor():
                         ))
                         ventana.after(0, lambda: actualizar_label_estado(
                             "Oponente desconectado, se reinicia el juego",
-                            'red', 300, 5
+                            '#FF6B6B', 300, 5
                         ))
 
                         #Reiniciar variables
@@ -179,7 +179,7 @@ def recibir_mensajes_servidor():
                     #Si hubo un error
                     elif mensaje['tipo'] == 'error':
                         ventana.after(0, lambda m=mensaje: actualizar_label_estado(
-                            m['mensaje'], 'red', 300, 5
+                            m['mensaje'], '#FF6B6B', 300, 5
                         ))
     
     except Exception as e:
@@ -220,7 +220,7 @@ def procesar_jugada_oponente(mensaje):
         tablero[z][y][x] = JUGADOR1_VALOR_X
 
         #Renderizar X en botón
-        botones[indice_boton].config(text=simbolo, font='arial 15', fg='blue')
+        botones[indice_boton].config(text=simbolo, font='arial 15', fg='#00BFFF')
     else:
         #Asignar simbolo de O a escribir en boton
         simbolo = JUGADOR2_SIMBOLO_O
@@ -229,14 +229,14 @@ def procesar_jugada_oponente(mensaje):
         tablero[z][y][x] = JUGADOR2_VALOR_O
 
         #Renderizar O en el botón
-        botones[indice_boton].config(text=simbolo, font='arial 15', fg='red')
+        botones[indice_boton].config(text=simbolo, font='arial 15', fg='#FF6B6B')
     
     #Mostrar coordenadas
     mostrar_coordenadas_jugada_actual(x, y, z)
     
     #Verificar si el oponente ganó con esta jugada
     if verificar_ganador():
-        actualizar_label_estado(f'Jugador {jugador} GANO', 'blue', 300, 5)
+        actualizar_label_estado(f'Jugador {jugador} GANO', '#00BFFF', 300, 5)
         juego_terminado = True
         return
     
@@ -252,11 +252,11 @@ def actualizar_turno(turno):
     
     #Actualizar a "Tu turno"
     if es_mi_turno:
-        actualizar_label_estado('Tu turno', 'green', 500, 620)
+        actualizar_label_estado('Tu turno', '#4ECDC4', 500, 620)
 
     #Actualiza a "Turno de oponente"
     else:
-        actualizar_label_estado('Turno del oponente', 'orange', 500, 620)
+        actualizar_label_estado('Turno del oponente', '#FFB84D', 500, 620)
 
 #Envia una jugada al servidor
 def enviar_jugada_al_servidor(x, y, z):
@@ -299,7 +299,7 @@ def inicializar_juego():
     
     #Limpiar todos los botones: sin texto, color azul, fondo blanco
     for boton in botones:
-        boton.config(text='', font='arial 15', fg='blue', bg='white')
+        boton.config(text='', font='arial 15', fg="#E6F3F7", bg='#2D2D2D')
 
     #Se limpia el juego_terminado de ronda anterior, si se reinició el juego con botón Salir
     juego_terminado = False
@@ -312,6 +312,10 @@ def crear_boton(indice_boton):
         width=5,
         height=1,
         font=("Helvetica", 15),
+        bg='#2D2D2D',
+        fg='#FFFFFF',
+        activebackground='#3D3D3D',
+        activeforeground='#FFFFFF',
         command=lambda: handle_click_boton(indice_boton)
     )
 
@@ -322,7 +326,7 @@ def handle_click_boton(indice_boton):
 
     #Si este cliente no está conectado
     if not conectado:
-        actualizar_label_estado('No estás conectado', 'red', 300, 5)
+        actualizar_label_estado('No estás conectado', '#FF6B6B', 300, 5)
         return
     
     #Si el juego terminó
@@ -332,7 +336,7 @@ def handle_click_boton(indice_boton):
 
     #Si no es el turno del cliente actual e intentó hacer una jugada
     if not es_mi_turno:
-        actualizar_label_estado('No es tu turno, las trampas son malas.', 'red', 300, 5)
+        actualizar_label_estado('No es tu turno, las trampas son malas.', '#FF6B6B', 300, 5)
         return
     
     #Convertir el índice lineal del botón (0-63) a sus coordenadas 3D (x, y, z)
@@ -350,7 +354,7 @@ def handle_click_boton(indice_boton):
 
     #Verificar si la celda, a la cual se le hizo click, está vacía
     if tablero[coordenada_z_jugada_actual][coordenada_y_jugada_actual][coordenada_x_jugada_actual] != CELDA_VACIA:
-        actualizar_label_estado('Celda ocupada. Las trampas son malas', 'red', 300, 5)
+        actualizar_label_estado('Celda ocupada. Las trampas son malas', '#FF6B6B', 300, 5)
         return
     
     #Si todo está bien, enviar jugada al servidor
@@ -565,42 +569,40 @@ ventana = Tk()
 ventana.title('Tic Tac Toe 3D')
 ventana.geometry("1040x720+100+5")
 ventana.resizable(True, True)
+ventana.configure(bg='#1A1A1A')
 
 #Frame principal
-frame_principal = Frame(ventana)
+frame_principal = Frame(ventana, bg='#1A1A1A')
 frame_principal.pack(fill='both', expand=True)
 
 #Frame izquierdo (estado + coordenadas)
-frame_izquierdo = Frame(frame_principal, width=250)
+frame_izquierdo = Frame(frame_principal, width=250, bg='#1A1A1A')
 frame_izquierdo.pack(side='left', fill='y', padx=10, pady=10)
 
-
 #Frame derecho (acciones)
-frame_derecho = Frame(frame_principal, width=120)
+frame_derecho = Frame(frame_principal, width=120, bg='#1A1A1A')
 frame_derecho.pack(side='right', fill='y', padx=10, pady=10)
 frame_derecho.pack_propagate(False)
 
-
 #Frame central (tablero)
-frame_centro = Frame(frame_principal)
+frame_centro = Frame(frame_principal, bg='#1A1A1A')
 frame_centro.pack(side='left', expand=True, fill='both', padx=10, pady=10)
-
 
 ## INPUT REDES ##
 
 #Frame de conexión
-frame_conexion = Frame(frame_izquierdo)
+frame_conexion = Frame(frame_izquierdo, bg='#1A1A1A')
 frame_conexion.pack(pady=20)
 
 #Obtener host
-Label(frame_conexion, text="Host:", font='arial 15').grid(row=0, column=0, padx=5)
-entry_host = Entry(frame_conexion, font='arial 15', width=15)
+Label(frame_conexion, text="Host:", font='arial 15', bg='#1A1A1A', fg='#FFFFFF').grid(row=0, column=0, padx=5)
+entry_host = Entry(frame_conexion, font='arial 15', width=15, bg='#2D2D2D', fg='#FFFFFF', insertbackground='#FFFFFF')
 entry_host.insert(0, "srv595743.hstgr.cloud")
 entry_host.grid(row=0, column=1, padx=5)
 
 #Obtener Puerto
-Label(frame_conexion, text="Puerto:", font='arial 15').grid(row=1, column=0, padx=5, pady=10)
-entry_port = Entry(frame_conexion, font='arial 15', width=15)
+Label(frame_conexion, text="Puerto:", font='arial 15', bg='#1A1A1A', fg='#FFFFFF').grid(row=1, column=0, padx=5, pady=10)
+entry_port = Entry(frame_conexion, font='arial 15', width=15, bg='#2D2D2D', fg='#FFFFFF', insertbackground='#FFFFFF')
 entry_port.insert(0, "5555")
 entry_port.grid(row=1, column=1, padx=5, pady=10)
 
@@ -609,35 +611,37 @@ Button(
     frame_conexion,
     text="Conectar",
     font='arial 15',
+    bg='#4ECDC4',
+    fg='#1A1A1A',
+    activebackground='#45B7AF',
+    activeforeground='#1A1A1A',
     command=conectar_al_servidor
 ).grid(row=2, column=0, columnspan=2, pady=10)
 
 ## FIN INPUT REDES ##
 
-
-
-## Interfaz de Juego ##{
+## Interfaz de Juego ##
 
 #Frame para el tablero
-frame_tablero = Frame(frame_centro)
+frame_tablero = Frame(frame_centro, bg='#1A1A1A')
 frame_tablero.pack(expand=True)
 
 #Frame para botones superiores
-frame_superior = Frame(frame_derecho)
+frame_superior = Frame(frame_derecho, bg='#1A1A1A')
 frame_superior.pack(anchor='n', pady=100)
 
 #Frame de estado del juego
-frame_estado = Frame(frame_izquierdo, width=200, height=400)
+frame_estado = Frame(frame_izquierdo, width=200, height=400, bg='#1A1A1A')
 frame_estado.pack(fill='x', pady=20)
 frame_estado.pack_propagate(False)
-
 
 #Label de estado (UN SOLO LABEL)
 label_estado = Label(
     frame_estado,
     text="No conectado",
     font='arial 16',
-    fg='black',
+    fg='#FFFFFF',
+    bg='#1A1A1A',
     wraplength=220,
     justify='center'
 )
@@ -648,24 +652,24 @@ label_identidad = Label(
     frame_izquierdo,
     text="",
     font='arial 16 bold',
-    fg='black',
+    fg='#FFFFFF',
+    bg='#1A1A1A',
     wraplength=220,
     justify='center'
 )
 label_identidad.pack(pady=10)
 
-
 #Frame de coordenadas
-frame_coordenadas = Frame(frame_izquierdo)
+frame_coordenadas = Frame(frame_izquierdo, bg='#1A1A1A')
 frame_coordenadas.pack(pady=20)
 
-label_x = Label(frame_coordenadas, text='X=0', font='arial 18', fg='green')
+label_x = Label(frame_coordenadas, text='X=0', font='arial 18', fg='#4ECDC4', bg='#1A1A1A')
 label_x.pack(anchor='w')
 
-label_y = Label(frame_coordenadas, text='Y=0', font='arial 18', fg='green')
+label_y = Label(frame_coordenadas, text='Y=0', font='arial 18', fg='#4ECDC4', bg='#1A1A1A')
 label_y.pack(anchor='w')
 
-label_z = Label(frame_coordenadas, text='Z=0', font='arial 18', fg='green')
+label_z = Label(frame_coordenadas, text='Z=0', font='arial 18', fg='#4ECDC4', bg='#1A1A1A')
 label_z.pack(anchor='w')
 
 #Crear los 64 botones del tablero (4x4x4 = 64 celdas)
@@ -680,7 +684,6 @@ for z in range(3, -1, -1):
         for x in range(TABLERO_SIZE):
             #Separar verticalmente cada plano Z
             fila = y + z * 4  
-
             #Separar horizontalmente cada plano Z
             columna = x + (3 - z) * 4
             
@@ -701,10 +704,14 @@ for i in range(16):
 #Crear botón de salida en la esquina superior derecha
 boton_salir = Button(
     frame_superior,
-    text='Restart/Salir',
+    text='Restart',
     width=25,
     height=1,
     font=("Helvetica", 15),
+    bg='#FF6B6B',
+    fg='#FFFFFF',
+    activebackground='#FF5252',
+    activeforeground='#FFFFFF',
     command=preguntar_continuar_o_salir
 )
 boton_salir.pack()
