@@ -1,10 +1,34 @@
 import socket
 import threading
 import json
+import sys
 
-#Constantes 
-HOST = '0.0.0.0' #Escuchar en todas las interfaces de red 
-PORT = 5555
+#Constantes
+HOST = '0.0.0.0' #Escuchar en todas las interfaces de red
+
+#Obtiene el puerto desde los argumentos de línea de comandos
+def obtener_puerto():
+    #Se necesita exactamente un argumento: el puerto
+    if len(sys.argv) != 2:
+        print("Error: se necesita el puerto como argumento")
+        print(f"Uso: python {sys.argv[0]} <puerto>")
+        sys.exit(1)
+
+    #Validar que el argumento sea un número entero
+    try:
+        puerto = int(sys.argv[1])
+    except ValueError:
+        print(f"Error: el puerto '{sys.argv[1]}' no es un número válido")
+        sys.exit(1)
+
+    #Validar que el puerto esté en el rango permitido
+    if not 1 <= puerto <= 65535:
+        print(f"Error: el puerto debe estar entre 1 y 65535, se recibió {puerto}")
+        sys.exit(1)
+
+    return puerto
+
+PORT = obtener_puerto()
 JUGADOR1_SIMBOLO = 'X'
 JUGADOR2_SIMBOLO = 'O'
 
