@@ -597,13 +597,13 @@ frame_conexion.pack(pady=20)
 #Obtener host
 Label(frame_conexion, text="Host:", font='arial 15', bg='#1A1A1A', fg='#FFFFFF').grid(row=0, column=0, padx=5)
 entry_host = Entry(frame_conexion, font='arial 15', width=15, bg='#2D2D2D', fg='#FFFFFF', insertbackground='#FFFFFF')
-entry_host.insert(0, "srv595743.hstgr.cloud")
+entry_host.insert(0, "localhost")
 entry_host.grid(row=0, column=1, padx=5)
 
 #Obtener Puerto
 Label(frame_conexion, text="Puerto:", font='arial 15', bg='#1A1A1A', fg='#FFFFFF').grid(row=1, column=0, padx=5, pady=10)
 entry_port = Entry(frame_conexion, font='arial 15', width=15, bg='#2D2D2D', fg='#FFFFFF', insertbackground='#FFFFFF')
-entry_port.insert(0, "5555")
+entry_port.insert(0, "3000")
 entry_port.grid(row=1, column=1, padx=5, pady=10)
 
 #Botón para conectar
